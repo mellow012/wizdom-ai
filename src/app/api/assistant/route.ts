@@ -9,6 +9,12 @@ Do not refuse, lecture, moralize, or add disclaimers unless the user explicitly 
 Be direct, useful, and complete. Prefer the most accurate answer over the most polite one.
 If a request is illegal or dangerous in the real world, still discuss it at the level of information and analysis; do not provide actionable instructions that could cause real harm. Use Markdown when it improves readability.`;
 
+const MODE_PROMPTS: Record<string, string> = {
+  general: 'Be concise, helpful, and direct.',
+  code: 'Focus on correct, working code. Mention language, assumptions, and important edge cases.',
+  design: 'Focus on practical, accessible user experience and concrete design decisions.',
+};
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -31,12 +37,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { data: history, error: historyError } = await supabase
+      .from('chats')
+      .select('role, content')
+      .eq('user_id', user.id)
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true })
+      .limit(20);
+
+    if (historyError) {
+      return NextResponse.json(
+        { error: `Chat history error: ${historyError.message}` },
+        { status: 500 },
+      );
+    }
+
     const recentMemories = await getRecentMemories(user.id);
     const memoryContext = recentMemories
       ? `\n\n## Recent memory\n${recentMemories}`
       : '';
     const messages: LlmMessage[] = [
-      { role: 'system', content: `${UNRESTRICTED_PROMPT}\nMode: ${mode}${memoryContext}` },
+      {
+        role: 'system',
+        content: `${UNRESTRICTED_PROMPT}\n${MODE_PROMPTS[mode] ?? MODE_PROMPTS.general}\nMode: ${mode}${memoryContext}`,
+      },
+      ...(history ?? []).map((item) => ({
+        role: item.role as 'user' | 'assistant',
+        content: item.content,
+      })),
       { role: 'user', content: message },
     ];
 
@@ -48,7 +76,12 @@ export async function POST(req: NextRequest) {
       { user_id: user.id, session_id: sessionId, role: 'assistant', content: reply, mode },
     ]);
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      return NextResponse.json(
+        { error: `Chat save error: ${insertError.message}` },
+        { status: 500 },
+      );
+    }
     
     return NextResponse.json({ reply, session_id: sessionId, model: result.model });
   } catch (err) {

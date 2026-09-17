@@ -1,0 +1,40 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="brandGlow" x1="96" y1="92" x2="408" y2="432" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A8F7FF"/>
+      <stop offset="0.35" stop-color="#4EDBFF"/>
+      <stop offset="0.7" stop-color="#20D5D8"/>
+      <stop offset="1" stop-color="#7FE7FF"/>
+    </linearGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g filter="url(#softGlow)" stroke="url(#brandGlow)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M123 291C123 216 176 151 246 124C313 99 392 114 433 163C398 160 364 167 332 184C302 200 276 224 258 252C244 274 236 299 234 323C233 338 235 351 241 365C204 363 169 350 139 327C126 317 123 306 123 291Z" fill="url(#brandGlow)" fill-opacity="0.08"/>
+
+    <path d="M126 298C104 239 125 180 176 141C219 109 279 94 333 107C363 114 390 128 414 148" stroke-width="18"/>
+    <path d="M170 161C222 108 312 95 370 130C408 154 436 190 440 232" stroke-width="18"/>
+    <path d="M159 343C171 408 214 451 279 458C342 464 407 437 441 385" stroke-width="18"/>
+    <path d="M267 133C311 133 347 171 349 212C351 273 304 310 247 312C197 313 154 279 149 234C144 191 178 149 221 137" stroke-width="16"/>
+
+    <path d="M177 280C231 252 279 240 343 247C388 252 426 273 457 303" stroke-width="16"/>
+    <path d="M169 345C223 326 284 321 342 333C386 342 423 359 451 384" stroke-width="16"/>
+
+    <path d="M126 298C178 305 220 334 241 382C256 416 258 454 253 484" stroke-width="14"/>
+    <path d="M250 126C284 136 313 158 336 191C348 208 358 227 364 247C378 288 367 332 340 361C322 380 296 394 267 398" stroke-width="14"/>
+    <path d="M414 148C432 183 433 226 417 259C405 284 386 305 361 321" stroke-width="14"/>
+  </g>
+
+  <g fill="url(#brandGlow)" filter="url(#softGlow)">
+    <path d="M96 296C93 246 107 201 142 165C148 158 157 153 164 159C171 165 170 177 164 185C134 217 120 252 120 300C120 320 124 338 132 355C117 348 101 332 96 296Z"/>
+    <path d="M304 112C335 95 366 89 400 94C420 97 429 109 423 128C417 145 399 152 380 154C353 156 332 152 314 144L304 112Z"/>
+    <path d="M343 166C381 183 414 209 438 247C445 257 445 271 435 279C425 287 409 286 398 279C367 259 338 241 310 225L343 166Z"/>
+    <path d="M186 379C160 399 136 422 120 448C111 462 93 466 81 456C70 447 70 430 78 418C96 393 120 373 148 355L186 379Z"/>
+  </g>
+</svg>

@@ -65,6 +65,22 @@ type MemoryNote = {
   created_at: string;
 };
 
+type ProjectStatus = 'concept' | 'planning' | 'active' | 'paused' | 'completed' | 'archived';
+
+type Project = {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  status: ProjectStatus;
+  github_repo_id?: number | null;
+  github_owner?: string | null;
+  github_repo?: string | null;
+  github_url?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 function generateSessionId() {
   return crypto.randomUUID();
 }
@@ -88,6 +104,14 @@ export default function DashboardPage() {
   const [newNoteCategory, setNewNoteCategory] = useState<'preference' | 'project_fact' | 'decision'>('preference');
   const [newNoteContent, setNewNoteContent] = useState('');
   const [memoryOpen, setMemoryOpen] = useState(false);
+
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectName, setProjectName] = useState('');
+  const [projectDescription, setProjectDescription] = useState('');
+  const [projectStatus, setProjectStatus] = useState<ProjectStatus>('concept');
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [projectError, setProjectError] = useState('');
+  const [projectLoading, setProjectLoading] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -156,11 +180,20 @@ export default function DashboardPage() {
     setSessions(recentSessions);
   }, [supabase]);
 
+  const loadProjects = useCallback(async () => {
+    const res = await fetch('/dashboard/api/projects');
+    if (!res.ok) return;
+
+    const json = await res.json().catch(() => ({ projects: [] }));
+    setProjects(json.projects ?? []);
+  }, []);
+
   useEffect(() => {
     loadChatHistory();
     loadMemoryNotes();
     loadChatSessions();
-  }, [loadChatHistory, loadMemoryNotes, loadChatSessions]);
+    loadProjects();
+  }, [loadChatHistory, loadMemoryNotes, loadChatSessions, loadProjects]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -188,7 +221,7 @@ export default function DashboardPage() {
     setMessages((prev) => [...prev, userMsg]);
 
     try {
-      const res = await fetch('/dashboard/api/chat', {
+      const res = await fetch('/api/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: trimmed, mode, session_id: sessionId }),
@@ -258,6 +291,78 @@ export default function DashboardPage() {
     loadMemoryNotes();
   }
 
+  async function handleProjectSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    const trimmedName = projectName.trim();
+
+    if (!trimmedName) {
+      setProjectError('Project name is required.');
+      return;
+    }
+
+    setProjectLoading(true);
+    setProjectError('');
+
+    try {
+      const method = editingProjectId ? 'PATCH' : 'POST';
+      const endpoint = editingProjectId
+        ? `/dashboard/api/projects/${editingProjectId}`
+        : '/dashboard/api/projects';
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: trimmedName,
+          description: projectDescription,
+          status: projectStatus,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to save project');
+      }
+
+      setProjectName('');
+      setProjectDescription('');
+      setProjectStatus('concept');
+      setEditingProjectId(null);
+      await loadProjects();
+    } catch (error) {
+      setProjectError(error instanceof Error ? error.message : 'Failed to save project');
+    } finally {
+      setProjectLoading(false);
+    }
+  }
+
+  function handleEditProject(project: Project) {
+    setEditingProjectId(project.id);
+    setProjectName(project.name);
+    setProjectDescription(project.description ?? '');
+    setProjectStatus(project.status);
+    setProjectError('');
+  }
+
+  async function handleDeleteProject(projectId: string) {
+    const confirmed = window.confirm('Delete this project?');
+    if (!confirmed) return;
+
+    const res = await fetch(`/dashboard/api/projects/${projectId}`, {
+      method: 'DELETE',
+    });
+
+    if (res.ok) {
+      await loadProjects();
+      if (editingProjectId === projectId) {
+        setEditingProjectId(null);
+        setProjectName('');
+        setProjectDescription('');
+        setProjectStatus('concept');
+      }
+    }
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push('/login');
@@ -289,6 +394,15 @@ export default function DashboardPage() {
     preference: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
     project_fact: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
     decision: 'bg-violet-500/20 text-violet-400 border-violet-500/30',
+  };
+
+  const statusColor: Record<ProjectStatus, string> = {
+    concept: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
+    planning: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+    active: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+    paused: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+    completed: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
+    archived: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30',
   };
 
   return (
@@ -464,6 +578,122 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      {/* ── Projects ─────────────────────────────────────── */}
+      <section className="border-b border-border px-4 py-4">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Projects</p>
+              <h2 className="text-base font-semibold">Your project foundation</h2>
+            </div>
+          </div>
+
+          <form onSubmit={handleProjectSubmit} className="space-y-3 rounded-lg border border-border bg-card p-3">
+            <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr]">
+              <div className="space-y-1">
+                <Label htmlFor="project-name" className="text-xs text-muted-foreground">Project name</Label>
+                <Input
+                  id="project-name"
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="Project name"
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="project-status" className="text-xs text-muted-foreground">Status</Label>
+                <Select value={projectStatus} onValueChange={(value) => setProjectStatus(value as ProjectStatus)}>
+                  <SelectTrigger id="project-status" className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="concept">Concept</SelectItem>
+                    <SelectItem value="planning">Planning</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="paused">Paused</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="archived">Archived</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="project-description" className="text-xs text-muted-foreground">Description</Label>
+              <Textarea
+                id="project-description"
+                value={projectDescription}
+                onChange={(e) => setProjectDescription(e.target.value)}
+                placeholder="Briefly describe the project"
+                className="min-h-[70px] text-sm"
+              />
+            </div>
+
+            {projectError && <p className="text-xs text-destructive">{projectError}</p>}
+
+            <div className="flex items-center gap-2">
+              <Button type="submit" size="sm" disabled={projectLoading}>
+                {projectLoading ? 'Saving...' : editingProjectId ? 'Save project' : 'Create project'}
+              </Button>
+              {editingProjectId && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setEditingProjectId(null);
+                    setProjectName('');
+                    setProjectDescription('');
+                    setProjectStatus('concept');
+                    setProjectError('');
+                  }}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </form>
+
+          <div className="mt-4 space-y-2">
+            {projects.length === 0 && (
+              <div className="rounded-lg border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">
+                No projects yet. Create your first project above.
+              </div>
+            )}
+
+            {projects.map((project) => (
+              <div key={project.id} className="rounded-lg border border-border bg-card p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-medium truncate">{project.name}</h3>
+                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${statusColor[project.status]}`}>
+                        {project.status}
+                      </span>
+                    </div>
+                    {project.description ? (
+                      <p className="mt-1 text-sm text-muted-foreground">{project.description}</p>
+                    ) : (
+                      <p className="mt-1 text-sm text-muted-foreground">No description yet.</p>
+                    )}
+                  </div>
+
+                  <div className="flex shrink-0 gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => handleEditProject(project)}>
+                      Edit
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDeleteProject(project.id)}>
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Messages ─────────────────────────────────────── */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
         <div className="max-w-2xl mx-auto space-y-4">
@@ -568,7 +798,7 @@ export default function DashboardPage() {
           />
           <Button
             size="icon"
-            onClick={handleSend}
+            onClick={() => handleSend()}
             disabled={loading || !input.trim()}
             className="shrink-0 h-[44px] w-[44px]"
           >
