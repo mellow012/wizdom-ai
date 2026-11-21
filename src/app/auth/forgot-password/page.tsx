@@ -41,11 +41,20 @@ export default function ForgotPasswordPage() {
       redirectTo: redirectUrl,
     });
 
+    setLoading(false);
+
     if (resetError) {
       console.error('Password reset request failed:', resetError);
+
+      if (resetError.status === 429 || resetError.message.toLowerCase().includes('rate limit')) {
+        setError('Too many reset requests. Please wait before trying again.');
+        return;
+      }
+
+      setError('We could not send the reset email. Please try again later.');
+      return;
     }
 
-    setLoading(false);
     setMessage("If an account exists for that email, we've sent you a password reset link.");
     setEmail('');
   }
