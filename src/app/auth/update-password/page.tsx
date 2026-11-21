@@ -28,27 +28,39 @@ export default function UpdatePasswordPage() {
 
     async function validateRecoverySession() {
       try {
-        const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
+        const hash = window.location.hash.startsWith('#')
+          ? window.location.hash.slice(1)
+          : window.location.hash;
         const params = new URLSearchParams(hash);
         const accessToken = params.get('access_token');
         const refreshToken = params.get('refresh_token');
 
         if (!mounted) return;
 
-        if (!accessToken || !refreshToken) {
-          setError('This password reset link is invalid or has expired. Please request a new reset link.');
+        if (accessToken && refreshToken) {
+          const { data, error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (!mounted) return;
+
+          if (sessionError || !data.session) {
+            setError('This password reset link is invalid or has expired. Please request a new reset link.');
+            setCheckingSession(false);
+            return;
+          }
+
+          window.history.replaceState({}, document.title, window.location.pathname);
           setCheckingSession(false);
           return;
         }
 
-        const { data, error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (!mounted) return;
 
-        if (sessionError || !data.session) {
+        if (sessionError || !session) {
           setError('This password reset link is invalid or has expired. Please request a new reset link.');
           setCheckingSession(false);
           return;
