@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
@@ -39,6 +39,22 @@ export default function LoginPage() {
     router.push('/dashboard');
     router.refresh();
   }
+
+  useEffect(() => {
+    const hash = window.location.hash.startsWith('#')
+      ? window.location.hash.slice(1)
+      : window.location.hash;
+
+    if (!hash) return;
+
+    const params = new URLSearchParams(hash);
+    const isRecovery = params.get('type') === 'recovery';
+    const isExpired = params.get('error') === 'access_denied' && params.get('error_code') === 'otp_expired';
+
+    if (isRecovery || isExpired) {
+      router.replace(`/auth/update-password${window.location.hash}`);
+    }
+  }, [router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">

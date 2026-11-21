@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     console.error('Auth callback exchange failed:', error);
   }
 
-  const loginUrl = new URL('/login', request.url);
-  loginUrl.searchParams.set('error', 'invalid_reset_link');
-  return NextResponse.redirect(loginUrl);
+  const updateUrl = new URL('/auth/update-password', request.url);
+  updateUrl.searchParams.set('error', code ? 'expired_reset_link' : 'invalid_reset_link');
+  return NextResponse.redirect(updateUrl);
 }

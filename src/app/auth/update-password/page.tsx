@@ -35,6 +35,13 @@ export default function UpdatePasswordPage() {
         const accessToken = params.get('access_token');
         const refreshToken = params.get('refresh_token');
 
+        if (params.get('error_code') === 'otp_expired' || params.get('error') === 'access_denied') {
+          setError('This password reset link is invalid or has expired. Please request a new reset link.');
+          setCheckingSession(false);
+          window.history.replaceState({}, document.title, window.location.pathname);
+          return;
+        }
+
         if (!mounted) return;
 
         if (accessToken && refreshToken) {
