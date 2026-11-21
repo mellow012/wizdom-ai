@@ -49,9 +49,10 @@ export default function LoginPage() {
 
     const params = new URLSearchParams(hash);
     const isRecovery = params.get('type') === 'recovery';
+    const hasRecoveryTokens = Boolean(params.get('access_token') && params.get('refresh_token'));
     const isExpired = params.get('error') === 'access_denied' && params.get('error_code') === 'otp_expired';
 
-    if (isRecovery || isExpired) {
+    if (isRecovery || hasRecoveryTokens || isExpired) {
       router.replace(`/auth/update-password${window.location.hash}`);
     }
   }, [router]);
